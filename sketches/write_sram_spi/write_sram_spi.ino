@@ -13,7 +13,7 @@
 //#define ADDR_24
 //#define SRAM_DEBUG
 
-#define SRL_BAUDS 1000000
+#define SRL_BAUDS 500000
 #define SPI_FREQ 8000000
 #define NOP __asm__("nop\n\t")
 
@@ -39,7 +39,7 @@ static inline void sramWriteMode()
 
 
 static inline void sramWriteAddress(unsigned long _address)
-{ 
+{
 #ifdef ADDR_8
   SPI.transfer(_address & 0xff);
 #elif defined ADDR_16
@@ -71,7 +71,7 @@ static inline void sramWriteData(byte _value)
 
 
 static inline void sramWrite(unsigned long _address, byte _value)
-{  
+{
   sramWriteAddress(_address);
   sramWriteData(_value);
 }
@@ -131,7 +131,7 @@ void loop()
 {
   size_t count = Serial.readBytes(inputBuffer, INPUT_SIZE);
   if(count > 0)
-  { 
+  {
     for(size_t i = 0; i < count; ++i)
     {
       sramWrite(startAddress + i, inputBuffer[i]);
@@ -140,7 +140,7 @@ void loop()
 #ifdef SRAM_DEBUG
     sramReadMode();
     for(size_t i = 0; i < count; ++i)
-    {    
+    {
       byte value = sramRead(startAddress + i);
       if(inputBuffer[i] != value)
         Serial.println(startAddress + i, HEX);
@@ -152,8 +152,11 @@ void loop()
   }
   else
   {
-    Serial.println("Size written (Bytes):");
-    Serial.println(startAddress);
-    startAddress = 0;   
+    if(startAddress > 0)
+    {
+      Serial.println("Size written (Bytes):");
+      Serial.println(startAddress);
+      startAddress = 0;
+    }
   }
 }
