@@ -3,17 +3,25 @@
 #define PORTC_RCLK 0x01
 #define PORTC_MNOE 0x02
 #define PORTC_MNWE 0x04
+#define PORTC_NCE0 0x08
+#define PORTC_NCE1 0x10
 
 #define PORTB_DATA 0x03
 #define PORTD_DATA 0xfc
 #define PORTC_CTRL 0x07
+#define PORTC_NCES 0x18
 
-#define ADDR_8
-//#define ADDR_16
+//#define ADDR_8
+#define ADDR_16
 //#define ADDR_24
 //#define SRAM_DEBUG
 
+#ifdef SRAM_DEBUG
+#define SRL_BAUDS 115200
+#else
 #define SRL_BAUDS 500000
+#endif
+
 #define SPI_FREQ 8000000
 #define NOP __asm__("nop\n\t")
 
@@ -22,19 +30,41 @@ static byte inputBuffer[INPUT_SIZE];
 static unsigned long startAddress = 0;
 
 
-static inline void sramWriteMode()
-{
-  // Various controls
-  DDRC |= PORTC_CTRL;
+static inline void sramDisableMode()
+{  
+  PORTC |= PORTC_NCES;
+  DDRC |= PORTC_NCES;
+  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_MNOE;  // Disable memory read (not)
   PORTC |= PORTC_MNWE;  // Disable memory write (not)
+  DDRC &= ~PORTC_CTRL;
+
+  // Data read
+  DDRB &= ~PORTB_DATA;
+  DDRD &= ~PORTD_DATA;
+  PORTB &= ~PORTB_DATA;
+  PORTD &= ~PORTD_DATA;  
+}
+
+
+static inline void sramWriteMode(byte _chip = 0)
+{
+  if(_chip == 0) { PORTC &= ~PORTC_NCE0; PORTC |= PORTC_NCE1; }
+  else { PORTC |= PORTC_NCE0; PORTC &= ~PORTC_NCE1; }
+  DDRC |= PORTC_NCES;
+  
+  // Various controls  
+  PORTC &= ~PORTC_RCLK; // Set Shift register clock low
+  PORTC |= PORTC_MNOE;  // Disable memory read (not)
+  PORTC |= PORTC_MNWE;  // Disable memory write (not)
+  DDRC |= PORTC_CTRL;
   
   // Data write
   PORTB &= ~PORTB_DATA;
   PORTD &= ~PORTD_DATA;
   DDRB |= PORTB_DATA;
-  DDRD |= PORTD_DATA;  
+  DDRD |= PORTD_DATA;
 }
 
 
@@ -78,13 +108,18 @@ static inline void sramWrite(unsigned long _address, byte _value)
 
 
 #ifdef SRAM_DEBUG
-static inline void sramReadMode()
+static inline void sramReadMode(byte _chip = 0)
 {
-  // Various controls
-  DDRC |= PORTC_CTRL;
+  // Chip selection
+  if(_chip == 0) { PORTC &= ~PORTC_NCE0; PORTC |= PORTC_NCE1; }
+  else { PORTC |= PORTC_NCE0; PORTC &= ~PORTC_NCE1; }
+  DDRC |= PORTC_NCES;
+  
+  // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_MNOE;  // Disable memory read (not)
   PORTC |= PORTC_MNWE;  // Disable memory write (not)
+  DDRC |= PORTC_CTRL;
   
   // Data read
   PORTB &= ~PORTB_DATA;
