@@ -1,19 +1,16 @@
 #include <SPI.h>
 
+#define PORTB_NSS  0x04
 #define PORTC_RCLK 0x01
-#define PORTC_MNOE 0x02
-#define PORTC_MNWE 0x04
-#define PORTC_NCE0 0x08
-#define PORTC_NCE1 0x10
+#define PORTC_NOE_0 0x02
+#define PORTC_NWE_0 0x04
 
 #define PORTB_DATA 0x03
 #define PORTD_DATA 0xfc
 #define PORTC_CTRL 0x07
-#define PORTC_NCES 0x18
 
 //#define ADDR_8
 #define ADDR_16
-//#define ADDR_24
 //#define SRAM_DEBUG
 
 #ifdef SRAM_DEBUG
@@ -27,37 +24,38 @@
 
 #define INPUT_SIZE 64
 static byte inputBuffer[INPUT_SIZE];
-static unsigned long startAddress = 0;
+static word startAddress = 0;
 
 
-static inline void sramDisableMode()
-{  
-  PORTC |= PORTC_NCES;
-  DDRC |= PORTC_NCES;
+static void sramDisableMode()
+{
+  // Chip select disable everything (not)
+  PORTB |= PORTB_NSS;
+  DDRB |= PORTB_NSS;
   
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_MNOE;  // Disable memory read (not)
-  PORTC |= PORTC_MNWE;  // Disable memory write (not)
+  PORTC |= PORTC_NOE_0;  // Disable memory read (not)
+  PORTC |= PORTC_NWE_0;  // Disable memory write (not)
   DDRC &= ~PORTC_CTRL;
 
   // Data read
+  PORTB &= ~PORTB_DATA;
+  PORTD &= ~PORTD_DATA;
   DDRB &= ~PORTB_DATA;
   DDRD &= ~PORTD_DATA;
-  PORTB &= ~PORTB_DATA;
-  PORTD &= ~PORTD_DATA;  
 }
 
 
-static inline void sramWriteMode(byte _chip = 0)
+static void sramWriteMode()
 {
-  if(_chip == 0) { PORTC &= ~PORTC_NCE0; PORTC |= PORTC_NCE1; }
-  else { PORTC |= PORTC_NCE0; PORTC &= ~PORTC_NCE1; }
-  DDRC |= PORTC_NCES;
+  // Chip select enable everything (not)
+  PORTB &= ~PORTB_NSS;
+  DDRB |= PORTB_NSS;
   
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_MNOE;  // Disable memory read (not)
-  PORTC |= PORTC_MNWE;  // Disable memory write (not)
+  PORTC |= PORTC_NOE_0;  // Disable memory read (not)
+  PORTC |= PORTC_NWE_0;  // Disable memory write (not)
   DDRC |= PORTC_CTRL;
   
   // Data write
@@ -68,19 +66,12 @@ static inline void sramWriteMode(byte _chip = 0)
 }
 
 
-static inline void sramWriteAddress(unsigned long _address)
+static inline void sramWriteAddress(word _address)
 {
 #ifdef ADDR_8
   SPI.transfer(_address & 0xff);
 #elif defined ADDR_16
-  unsigned int address = _address & 0xffff;
-  SPI.transfer16(address);
-#elif defined ADDR_24
-  byte address[3];
-  address[0] = _address & 0xff;
-  address[1] = (_address >> 8) & 0xff;
-  address[2] = (_address >> 16) & 0xff;
-  SPI.transfer(address, 3);
+  SPI.transfer16(_address);
 #else
   #error "ADDR_X not defined"
 #endif
@@ -94,13 +85,13 @@ static inline void sramWriteData(byte _value)
 {
   PORTB = (PORTB & ~PORTB_DATA) | (_value & PORTB_DATA);
   PORTD = (PORTD & ~PORTD_DATA) | (_value & PORTD_DATA);  
-  PORTC &= ~PORTC_MNWE;
+  PORTC &= ~PORTC_NWE_0;
   NOP;
-  PORTC |= PORTC_MNWE;
+  PORTC |= PORTC_NWE_0;
 }
 
 
-static inline void sramWrite(unsigned long _address, byte _value)
+static inline void sramWrite(word _address, byte _value)
 {
   sramWriteAddress(_address);
   sramWriteData(_value);
@@ -108,17 +99,16 @@ static inline void sramWrite(unsigned long _address, byte _value)
 
 
 #ifdef SRAM_DEBUG
-static inline void sramReadMode(byte _chip = 0)
+static void sramReadMode()
 {
-  // Chip selection
-  if(_chip == 0) { PORTC &= ~PORTC_NCE0; PORTC |= PORTC_NCE1; }
-  else { PORTC |= PORTC_NCE0; PORTC &= ~PORTC_NCE1; }
-  DDRC |= PORTC_NCES;
+  // Chip select enable everything (not)
+  PORTB &= ~PORTB_NSS;
+  DDRB |= PORTB_NSS;
   
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_MNOE;  // Disable memory read (not)
-  PORTC |= PORTC_MNWE;  // Disable memory write (not)
+  PORTC |= PORTC_NOE_0;  // Disable memory read (not)
+  PORTC |= PORTC_NWE_0;  // Disable memory write (not)
   DDRC |= PORTC_CTRL;
   
   // Data read
@@ -132,16 +122,16 @@ static inline void sramReadMode(byte _chip = 0)
 static inline byte sramReadData()
 {
   byte value = 0;
-  PORTC &= ~PORTC_MNOE;
+  PORTC &= ~PORTC_NOE_0;
   NOP;
   value |= PINB & PORTB_DATA;
   value |= PIND & PORTD_DATA;
-  PORTC |= PORTC_MNOE;
+  PORTC |= PORTC_NOE_0;
   return value;
 }
 
 
-static inline byte sramRead(unsigned long _address)
+static inline byte sramRead(word _address)
 {
   sramWriteAddress(_address);
   return sramReadData();
@@ -151,7 +141,9 @@ static inline byte sramRead(unsigned long _address)
 
 void setup()
 {
+  sramDisableMode();
   sramWriteMode();
+  
   SPI.begin();
   Serial.begin(SRL_BAUDS);
   SPI.beginTransaction(SPISettings(SPI_FREQ, LSBFIRST, SPI_MODE0));
