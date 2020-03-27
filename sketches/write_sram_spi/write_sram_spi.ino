@@ -4,6 +4,8 @@
 #define PORTC_RCLK 0x01
 #define PORTC_NOE_0 0x02
 #define PORTC_NWE_0 0x04
+#define PORTC_NOE_1 0x08
+#define PORTC_NWE_1 0x10
 
 #define PORTB_DATA 0x03
 #define PORTD_DATA 0xfc
@@ -34,8 +36,8 @@ static void sramDisableMode()
   DDRB |= PORTB_NSS;
   
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_NOE_0;  // Disable memory read (not)
-  PORTC |= PORTC_NWE_0;  // Disable memory write (not)
+  PORTC |= PORTC_NOE_0;  // Disable memory read (not) using pull-up
+  PORTC |= PORTC_NWE_0;  // Disable memory write (not) using pull-up
   DDRC &= ~PORTC_CTRL;
 
   // Data read
@@ -87,6 +89,7 @@ static inline void sramWriteData(byte _value)
   PORTD = (PORTD & ~PORTD_DATA) | (_value & PORTD_DATA);  
   PORTC &= ~PORTC_NWE_0;
   NOP;
+  NOP;
   PORTC |= PORTC_NWE_0;
 }
 
@@ -123,6 +126,7 @@ static inline byte sramReadData()
 {
   byte value = 0;
   PORTC &= ~PORTC_NOE_0;
+  NOP;
   NOP;
   value |= PINB & PORTB_DATA;
   value |= PIND & PORTD_DATA;
