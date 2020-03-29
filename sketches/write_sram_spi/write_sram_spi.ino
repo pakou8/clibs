@@ -2,14 +2,14 @@
 
 #define PORTB_NSS  0x04
 #define PORTC_RCLK 0x01
-#define PORTC_NOE_0 0x02
-#define PORTC_NWE_0 0x04
-#define PORTC_NOE_1 0x08
-#define PORTC_NWE_1 0x10
+#define PORTC_NOE 0x02
+#define PORTC_NWE 0x04
+#define PORTC_NCE_0 0x08
+#define PORTC_NCE_1 0x10
 
 #define PORTB_DATA 0x03
 #define PORTD_DATA 0xfc
-#define PORTC_CTRL 0x07
+#define PORTC_CTRL 0x1f
 
 //#define ADDR_8
 #define ADDR_16
@@ -36,8 +36,10 @@ static void sramDisableMode()
   DDRB |= PORTB_NSS;
   
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_NOE_0;  // Disable memory read (not) using pull-up
-  PORTC |= PORTC_NWE_0;  // Disable memory write (not) using pull-up
+  PORTC |= PORTC_NOE;   // Disable memory read (not) using pull-up
+  PORTC |= PORTC_NWE;   // Disable memory write (not) using pull-up
+  PORTC |= PORTC_NCE_0; // Disable memory chip 0 (not) using pull-up
+  PORTC |= PORTC_NCE_1; // Disable memory chip 1 (not) using pull-up
   DDRC &= ~PORTC_CTRL;
 
   // Data read
@@ -48,7 +50,7 @@ static void sramDisableMode()
 }
 
 
-static void sramWriteMode()
+static void sramWriteMode(byte _chip = 0)
 {
   // Chip select enable everything (not)
   PORTB &= ~PORTB_NSS;
@@ -56,8 +58,11 @@ static void sramWriteMode()
   
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_NOE_0;  // Disable memory read (not)
-  PORTC |= PORTC_NWE_0;  // Disable memory write (not)
+  PORTC |= PORTC_NOE;  // Disable memory read (not)
+  PORTC |= PORTC_NWE;  // Disable memory write (not)
+  // Select one of the memory chip
+  if(_chip == 0) { PORTC &= ~PORTC_NCE_0; PORTC |= PORTC_NCE_1; }
+  else { PORTC |= PORTC_NCE_0; PORTC &= ~PORTC_NCE_1; }
   DDRC |= PORTC_CTRL;
   
   // Data write
@@ -87,10 +92,10 @@ static inline void sramWriteData(byte _value)
 {
   PORTB = (PORTB & ~PORTB_DATA) | (_value & PORTB_DATA);
   PORTD = (PORTD & ~PORTD_DATA) | (_value & PORTD_DATA);  
-  PORTC &= ~PORTC_NWE_0;
+  PORTC &= ~PORTC_NWE;
   NOP;
   NOP;
-  PORTC |= PORTC_NWE_0;
+  PORTC |= PORTC_NWE;
 }
 
 
@@ -102,7 +107,7 @@ static inline void sramWrite(word _address, byte _value)
 
 
 #ifdef SRAM_DEBUG
-static void sramReadMode()
+static void sramReadMode(byte _chip = 0)
 {
   // Chip select enable everything (not)
   PORTB &= ~PORTB_NSS;
@@ -110,8 +115,11 @@ static void sramReadMode()
   
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
-  PORTC |= PORTC_NOE_0;  // Disable memory read (not)
-  PORTC |= PORTC_NWE_0;  // Disable memory write (not)
+  PORTC |= PORTC_NOE;  // Disable memory read (not)
+  PORTC |= PORTC_NWE;  // Disable memory write (not)
+  // Select one of the memory chip
+  if(_chip == 0) { PORTC &= ~PORTC_NCE_0; PORTC |= PORTC_NCE_1; }
+  else { PORTC |= PORTC_NCE_0; PORTC &= ~PORTC_NCE_1; }
   DDRC |= PORTC_CTRL;
   
   // Data read
@@ -125,12 +133,12 @@ static void sramReadMode()
 static inline byte sramReadData()
 {
   byte value = 0;
-  PORTC &= ~PORTC_NOE_0;
+  PORTC &= ~PORTC_NOE;
   NOP;
   NOP;
   value |= PINB & PORTB_DATA;
   value |= PIND & PORTD_DATA;
-  PORTC |= PORTC_NOE_0;
+  PORTC |= PORTC_NOE;
   return value;
 }
 
