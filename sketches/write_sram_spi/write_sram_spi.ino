@@ -13,20 +13,22 @@
 
 //#define ADDR_8
 #define ADDR_16
-//#define SRAM_DEBUG
-
-#ifdef SRAM_DEBUG
-#define SRL_BAUDS 115200
-#else
+//#define SRL_BAUDS 115200
 #define SRL_BAUDS 500000
-#endif
-
 #define SPI_FREQ 8000000
 #define NOP __asm__("nop\n\t")
 
 #define INPUT_SIZE 64
-static byte inputBuffer[INPUT_SIZE];
-static word startAddress = 0;
+#define STATE_IDLE 0
+#define STATE_READ 1
+#define STATE_WRITE 2
+
+// Initialized in the init function
+byte state;
+byte chip;
+word start;
+word current;
+word readsize;
 
 
 static void sramDisableMode()
@@ -106,7 +108,6 @@ static inline void sramWrite(word _address, byte _value)
 }
 
 
-#ifdef SRAM_DEBUG
 static void sramReadMode(byte _chip = 0)
 {
   // Chip select enable everything (not)
@@ -148,14 +149,23 @@ static inline byte sramRead(word _address)
   sramWriteAddress(_address);
   return sramReadData();
 }
-#endif
+
+
+static byte tokenize(char *_string, const char *_delimiter, const char *_tokens[8])
+{
+  byte count = 0;
+  char *token = strtok(_string, _delimiter);
+  while(token != NULL && count < 8)
+  {
+    _tokens[count++] = token;
+    token = strtok(NULL, _delimiter);    
+  }
+  return count;
+}
 
 
 void setup()
-{
-  sramDisableMode();
-  sramWriteMode();
-  
+{ 
   SPI.begin();
   Serial.begin(SRL_BAUDS);
   SPI.beginTransaction(SPISettings(SPI_FREQ, LSBFIRST, SPI_MODE0));
@@ -163,39 +173,87 @@ void setup()
   // Read TCNT1 to do cycle timing
   TCCR1A = 0;
   TCCR1B = 1;
+  
+  sramDisableMode();
+  state = STATE_IDLE;
 }
 
 
 void loop()
 {
-  size_t count = Serial.readBytes(inputBuffer, INPUT_SIZE);
-  if(count > 0)
+  switch(state)
   {
-    for(size_t i = 0; i < count; ++i)
+    case STATE_IDLE:
     {
-      sramWrite(startAddress + i, inputBuffer[i]);
+      char command[INPUT_SIZE];
+      size_t count = Serial.readBytesUntil(';', command, INPUT_SIZE);
+      if(count > 0)
+      {
+        // Parse the command
+        command[count] = 0;
+        const char *tokens[8];
+        byte argc = tokenize(command, " ", tokens);
+        if(argc > 0)
+        {
+          if(strcmp(tokens[0], "write") == 0 && argc == 3)
+          {
+            chip = atoi(tokens[1]);
+            start = atoi(tokens[2]);
+            current = start;
+            sramWriteMode(chip);
+            state = STATE_WRITE;
+          }
+          else if(strcmp(tokens[0], "read") == 0 && argc == 4)
+          {
+            chip = atoi(tokens[1]);
+            start = atoi(tokens[2]);
+            readsize = atoi(tokens[3]);
+            current = start;
+            sramReadMode(chip);
+            state = STATE_READ;
+          }
+        }
+      }
+      break;
     }
-
-#ifdef SRAM_DEBUG
-    sramReadMode();
-    for(size_t i = 0; i < count; ++i)
+    case STATE_READ:
     {
-      byte value = sramRead(startAddress + i);
-      if(inputBuffer[i] != value)
-        Serial.println(startAddress + i, HEX);
+      byte data[INPUT_SIZE];
+      
+      size_t diff = start + readsize - current;
+      size_t count = (diff > INPUT_SIZE) ? INPUT_SIZE : diff;      
+      for(size_t i = 0; i < count; ++i)
+      {
+        data[i] = sramRead(current);
+        ++current;
+      }
+      
+      Serial.write(data, count);
+      if(current - start == readsize)
+      {
+        sramDisableMode();
+        state = STATE_IDLE;
+      }
+      break;
     }
-    sramWriteMode();
-#endif
-    
-    startAddress += count;
-  }
-  else
-  {
-    if(startAddress > 0)
+    case STATE_WRITE:
     {
-      Serial.println("Size written (Bytes):");
-      Serial.println(startAddress);
-      startAddress = 0;
+      byte data[INPUT_SIZE];
+      size_t count = Serial.readBytes(data, INPUT_SIZE);
+      if(count > 0)
+      {
+        for(size_t i = 0; i < count; ++i)
+        {
+          sramWrite(current, data[i]);
+          ++current;
+        }
+      }
+      else
+      {
+        sramDisableMode();
+        state = STATE_IDLE;
+      }
+      break;
     }
   }
 }
