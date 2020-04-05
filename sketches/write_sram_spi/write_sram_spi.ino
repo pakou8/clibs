@@ -161,12 +161,12 @@ void setup()
   // Read TCNT1 to do cycle timing
   TCCR1A = 0;
   TCCR1B = 1;
-  
+
+  sramDisableMode();
   SPI.begin();
   Serial.begin(SRL_BAUDS);
   Serial.setTimeout(SRL_TIMEOUT);
   SPI.beginTransaction(SPISettings(SPI_FREQ, LSBFIRST, SPI_MODE0));
-  sramDisableMode();
 }
 
 
@@ -184,7 +184,6 @@ void loop()
     {
       if(strcmp(tokens[0], "write") == 0 && argc == 3)
       {
-        //Serial.println("write");
         size_t count = 0;
         byte data[INPUT_SIZE];
         byte chip = atoi(tokens[1]);
@@ -200,7 +199,6 @@ void loop()
       }
       else if(strcmp(tokens[0], "read") == 0 && argc == 4)
       {
-        //Serial.println("read");
         byte data[INPUT_SIZE];
         byte chip = atoi(tokens[1]);
         word ptr = atoi(tokens[2]);
@@ -221,7 +219,6 @@ void loop()
       }
       else if(strcmp(tokens[0], "memset") == 0 && argc == 5)
       {
-        //Serial.println("memset");
         byte chip = atoi(tokens[1]);
         word ptr = atoi(tokens[2]);
         size_t count = atoi(tokens[3]);
