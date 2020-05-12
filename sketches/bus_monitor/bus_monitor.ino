@@ -19,14 +19,15 @@ void onClock()
   
   word address = SPI.transfer16(dummy16);
   byte data = SPI.transfer(dummy8);
-  byte rW = PINB & PORTB_DRW;
-  char mode = (rW > 0) ? 'r' : 'W';
+  byte rW = PINB & PORTB_DRW;  
 
   // Release latch
   PORTB &= ~PORTB_RCLK;
 
   char tmp[64];
-  sprintf(tmp, "%04x\t%c\t%02x", address, mode, data);
+  char mode = (rW > 0) ? 'r' : 'W';
+  byte ascii = (data > 0x21 && data < 0x7e) ? data : '.';
+  sprintf(tmp, "%04x\t%c\t%02x %c", address, mode, data, ascii);
   Serial.println(tmp);
 }
 
