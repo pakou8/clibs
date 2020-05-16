@@ -1,6 +1,5 @@
 #include <SPI.h>
 
-#define PORTB_NSS  0x04
 #define PORTC_RCLK 0x01
 #define PORTC_NOE 0x02
 #define PORTC_NWE 0x04
@@ -10,9 +9,6 @@
 #define PORTB_DATA 0x03
 #define PORTD_DATA 0xfc
 #define PORTC_CTRL 0x1f
-
-//#define ADDR_8
-#define ADDR_16
 
 //#define SRL_BAUDS 115200
 #define SRL_BAUDS 500000
@@ -25,10 +21,6 @@
 
 static void sramDisableMode()
 {
-  // Chip select disable everything (not)
-  PORTB |= PORTB_NSS;
-  DDRB |= PORTB_NSS;
-  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_NOE;   // Disable memory read (not) using pull-up
   PORTC |= PORTC_NWE;   // Disable memory write (not) using pull-up
@@ -46,10 +38,6 @@ static void sramDisableMode()
 
 static void sramWriteMode(byte _chip = 0)
 {
-  // Chip select enable everything (not)
-  PORTB &= ~PORTB_NSS;
-  DDRB |= PORTB_NSS;
-  
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_NOE;  // Disable memory read (not)
@@ -69,13 +57,7 @@ static void sramWriteMode(byte _chip = 0)
 
 static inline void sramWriteAddress(word _address)
 {
-#ifdef ADDR_8
-  SPI.transfer(_address & 0xff);
-#elif defined ADDR_16
   SPI.transfer16(_address);
-#else
-  #error "ADDR_X not defined"
-#endif
 
   PORTC |= PORTC_RCLK;
   PORTC &= ~PORTC_RCLK;
@@ -102,10 +84,6 @@ static inline void sramWrite(word _address, byte _value)
 
 static void sramReadMode(byte _chip = 0)
 {
-  // Chip select enable everything (not)
-  PORTB &= ~PORTB_NSS;
-  DDRB |= PORTB_NSS;
-  
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_NOE;  // Disable memory read (not)
