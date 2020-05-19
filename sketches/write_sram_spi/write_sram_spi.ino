@@ -1,10 +1,13 @@
 #include <SPI.h>
 
-#define PORTC_RCLK 0x01
-#define PORTC_NOE 0x02
-#define PORTC_NWE 0x04
+#define PORTC_RCLK  0x01
+#define PORTC_NOE   0x02
+#define PORTC_NWE   0x04
 #define PORTC_NCE_0 0x08
 #define PORTC_NCE_1 0x10
+
+#define PORTB_NSS_0 0x04
+#define PORTC_NSS_1 0x20
 
 #define PORTB_DATA 0x03
 #define PORTD_DATA 0xfc
@@ -20,13 +23,20 @@
 
 
 static void sramDisableMode()
-{
+{ 
+  // Various control
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_NOE;   // Disable memory read (not) using pull-up
   PORTC |= PORTC_NWE;   // Disable memory write (not) using pull-up
   PORTC |= PORTC_NCE_0; // Disable memory chip 0 (not) using pull-up
   PORTC |= PORTC_NCE_1; // Disable memory chip 1 (not) using pull-up
   DDRC &= ~PORTC_CTRL;
+
+  // Disable SPI chips
+  PORTB |= PORTB_NSS_0;
+  DDRB |= PORTB_NSS_0;
+  PORTC |= PORTC_NSS_1;
+  DDRC |= PORTC_NSS_1;
 
   // Data read
   PORTB &= ~PORTB_DATA;
@@ -36,16 +46,38 @@ static void sramDisableMode()
 }
 
 
+static void selectChip(byte _chip)
+{
+  // Select one of the memory chip
+  if(_chip == 0)
+  {
+    PORTB &= ~PORTB_NSS_0;
+    PORTC &= ~PORTC_NCE_0;
+    PORTC |= PORTC_NSS_1;
+    PORTC |= PORTC_NCE_1;
+  }
+  else
+  {
+    PORTB |= PORTB_NSS_0;
+    PORTC |= PORTC_NCE_0;
+    PORTC &= ~PORTC_NSS_1;
+    PORTC &= ~PORTC_NCE_1;
+  }
+  
+  DDRB |= PORTB_NSS_0;
+  DDRC |= PORTC_NSS_1;
+}
+
+
 static void sramWriteMode(byte _chip = 0)
 {
   // Various controls  
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_NOE;  // Disable memory read (not)
   PORTC |= PORTC_NWE;  // Disable memory write (not)
-  // Select one of the memory chip
-  if(_chip == 0) { PORTC &= ~PORTC_NCE_0; PORTC |= PORTC_NCE_1; }
-  else { PORTC |= PORTC_NCE_0; PORTC &= ~PORTC_NCE_1; }
   DDRC |= PORTC_CTRL;
+
+  selectChip(_chip);  
   
   // Data write
   PORTB &= ~PORTB_DATA;
@@ -88,10 +120,9 @@ static void sramReadMode(byte _chip = 0)
   PORTC &= ~PORTC_RCLK; // Set Shift register clock low
   PORTC |= PORTC_NOE;  // Disable memory read (not)
   PORTC |= PORTC_NWE;  // Disable memory write (not)
-  // Select one of the memory chip
-  if(_chip == 0) { PORTC &= ~PORTC_NCE_0; PORTC |= PORTC_NCE_1; }
-  else { PORTC |= PORTC_NCE_0; PORTC &= ~PORTC_NCE_1; }
   DDRC |= PORTC_CTRL;
+
+  selectChip(_chip);
   
   // Data read
   PORTB &= ~PORTB_DATA;
