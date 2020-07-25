@@ -9,11 +9,11 @@
 #define PORTD_DATA 0xfc
 #define PORTC_CTRL 0x0f
 
-#define SRL_BAUDS 57600
+#define SRL_BAUDS 115200
 #define SRL_TIMEOUT 100
 #define SPI_FREQ 8000000
 
-#define INPUT_SIZE 64
+#define INPUT_SIZE 32
 #define NOP __asm__("nop\n\t")
 
 
