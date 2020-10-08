@@ -171,9 +171,18 @@ void loop()
           {
             romWriteMode();
             byte last = data[i];
-            romWrite(0x0a955L, 0xaa); //romWrite(0x5555L, 0xaa);
-            romWrite(0x016aaL, 0x55); //romWrite(0x2aaaL, 0x55);
-            romWrite(0x0a955L, 0xa0); //romWrite(0x5555L, 0xa0);
+            //romWrite(0x5555L, 0xaa); // normal
+            //romWrite(0x0a955L, 0xaa); // breadboard
+            romWrite(0x04b55L, 0xaa); // tspoon devcart
+
+            //romWrite(0x2aaaL, 0x55); // normal
+            //romWrite(0x016aaL, 0x55); // breadboard
+            romWrite(0x034aaL, 0x55); // tspoon devcart
+            
+            //romWrite(0x5555L, 0xa0); // normal
+            //romWrite(0x0a955L, 0xa0); // breadboard
+            romWrite(0x04b55L, 0xa0); // tspoon devcart
+            
             romWrite(ptr++, last);
 
             romReadMode();
@@ -204,12 +213,12 @@ void loop()
       else if(strcmp(tokens[0], "erase") == 0 && argc == 1)
       {
         romWriteMode();        
-        romWrite(0x0a955L, 0xaa); //romWrite(0x5555L, 0xaa);
-        romWrite(0x016aaL, 0x55); //romWrite(0x2aaaL, 0x55);
-        romWrite(0x0a955L, 0x80);
-        romWrite(0x0a955L, 0xaa);
-        romWrite(0x016aaL, 0x55);
-        romWrite(0x0a955L, 0x10);
+        romWrite(0x04b55L, 0xaa);
+        romWrite(0x034aaL, 0x55);
+        romWrite(0x04b55L, 0x80);
+        romWrite(0x04b55L, 0xaa);
+        romWrite(0x034aaL, 0x55);
+        romWrite(0x04b55L, 0x10);
 
         romReadMode();
         while((romReadData() & 0x80) != (0x10 & 0x80));
